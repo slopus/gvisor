@@ -442,7 +442,8 @@ func (rc *rackControl) reorderTimerExpired() tcpip.Error {
 	// (gvisor#9707/#9778). detectLoss arms the timer from rcvdTime-derived
 	// values, so evaluating it at the timer target keeps the two consistent.
 	numLost := rc.detectLoss(rc.snd.reorderTimer.target)
-	if numLost == 0 {
+	// Timeout recovery resends these anyway; see handleRcvdSegment.
+	if numLost == 0 || rc.snd.state == tcpip.RTORecovery {
 		return nil
 	}
 

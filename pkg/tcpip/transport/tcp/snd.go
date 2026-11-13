@@ -1775,7 +1775,17 @@ func (s *sender) handleRcvdSegment(rcvdSeg *segment) {
 		// After the reorder window is calculated, detect any loss by checking
 		// if the time elapsed after the segments are sent is greater than the
 		// reorder window.
-		if numLost := s.rc.detectLoss(rcvdSeg.rcvdTime); numLost > 0 && !s.FastRecovery.Active {
+		//
+		// After a retransmission timeout the sender is already resending
+		// everything from SndUna in slow start, and RFC 6675 section 5.1
+		// forbids a new recovery until the data outstanding at the timeout
+		// is acknowledged. Entering one anyway, as soon as the first
+		// retransmission is acknowledged and RACK marks everything sent
+		// before it lost, froze cwnd at ssthresh+3 while SetPipe, its
+		// scoreboard reset by the timeout, still counted every one of those
+		// segments in flight: nothing more was sent until the next, doubled,
+		// timeout, one or two segments at a time.
+		if numLost := s.rc.detectLoss(rcvdSeg.rcvdTime); numLost > 0 && !s.FastRecovery.Active && s.state != tcpip.RTORecovery {
 			// If any segment is marked as lost by
 			// RACK, enter recovery and retransmit
 			// the lost segments.
